@@ -107,7 +107,19 @@ The limit is worth knowing: any process that can reach the listener can call
 every location on it. Separation between two principals on the same listener
 therefore only holds if the narrower one cannot open sockets — so give the
 broader scope to the consumer that has shell access, never the other way round.
-`todoist.conf.example` says the same thing where it will be read.
+The generated route says the same thing in a comment at the top, where whoever
+edits it next will read it.
+
+The route is not written by hand. `render-route.sh` generates it from
+`acl.json` — one `location` per principal, keyed by the principal's own name:
+
+```bash
+./render-route.sh > todoist.conf
+```
+
+The route and the ACL are two views of the same list, so generating one from
+the other is what keeps them from drifting. Adding a consumer is one edit to
+`acl.json`, a re-render, and a reload — no code change and no restart.
 
 ## Running it
 
@@ -130,7 +142,7 @@ a principal takes effect without restarting the service.
 2. Write `.env` and `acl.json` in place; `chmod 600` both.
 3. Install `jaci-todoist.service` into `/etc/systemd/system/`, then
    `systemctl daemon-reload && systemctl enable --now jaci-todoist`.
-4. Render `todoist.conf.example` with the real keys into
+4. `./render-route.sh > todoist.conf`, install it (mode 600, root) as
    `/etc/nginx/hermes-routes/agent/todoist.conf`, then `nginx -t` and reload.
 
 The service listens on loopback only. It is reached through the agent-facing
@@ -172,6 +184,7 @@ appear in a request or a response.
 | `todoist.ts` | Todoist API v1 client |
 | `budget.ts` | per-principal write ceiling |
 | `logger.ts` | daily NDJSON audit trail |
+| `render-route.sh` | generates the nginx route from `acl.json` |
 
 `acl.test.ts` covers the permission boundary; almost every assertion in it is
 about something being refused. `tools.test.ts` covers the registry, the role
