@@ -1,0 +1,4 @@
+# Authored on Windows, deployed on Linux. Normalise to LF in the repository and
+# in the working tree, so a systemd unit or an nginx conf never arrives with
+# CRLF endings that the target parses as part of a value.
+* text=auto eol=lf

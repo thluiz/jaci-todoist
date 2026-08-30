@@ -1,0 +1,24 @@
+[Unit]
+Description=jaci-todoist — scoped Todoist gateway (Bun, port 8008)
+After=network.target
+
+[Service]
+Type=simple
+User=hermes
+WorkingDirectory=/home/hermes/services/jaci-todoist
+ExecStart=/home/hermes/.bun/bin/bun run /home/hermes/services/jaci-todoist/server.ts
+
+# Restart=always, not on-failure: a SIGTERM combined with on-failure leaves the
+# unit stopped, which on this host has meant a service quietly gone after a
+# routine signal.
+Restart=always
+RestartSec=5
+
+# The Todoist token lives in .env (chmod 600), never in Environment= here:
+# unit files under /etc/systemd/system are world-readable.
+EnvironmentFile=/home/hermes/services/jaci-todoist/.env
+Environment=HOME=/home/hermes
+Environment=PATH=/home/hermes/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target

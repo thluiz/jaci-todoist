@@ -1,0 +1,14 @@
+# Secrets and per-deployment configuration — never committed.
+# This repository is public; keep it that way by keeping these out.
+.env
+acl.json
+
+# Rendered nginx route: contains the real API keys.
+# Only todoist.conf.example (with placeholders) is versioned.
+todoist.conf
+
+# Runtime
+logs/
+node_modules/
+bun.lockb
+*.log
