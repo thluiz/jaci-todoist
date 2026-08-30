@@ -38,6 +38,15 @@ export interface PrincipalConfig {
    * visible tool is a suggestion, and a tool that is absent is a boundary.
    */
   denyTools?: string[];
+  /**
+   * Alias used when a caller creates a task without naming a project. Must be
+   * inside this principal's own scope.
+   *
+   * A model that has to pick a destination every time will sometimes pick the
+   * wrong one. Naming the usual answer here means the unusual one has to be
+   * asked for explicitly, which is the safer way round.
+   */
+  defaultProject?: string;
 }
 
 export interface AclFile {
@@ -72,6 +81,8 @@ export interface Principal {
   readonly projectIds: ReadonlyMap<string, string>;
   /** Tool names this principal may not call, and is not shown. */
   readonly deniedTools: ReadonlySet<string>;
+  /** Alias used when a create omits the project. */
+  readonly defaultProject?: string;
 }
 
 export class Acl {
@@ -130,12 +141,22 @@ export class Acl {
         throw new Error(`acl: principal "${name}" has invalid \`denyTools\` (expected a list of names)`);
       }
 
+      const fallback = config.defaultProject;
+      if (fallback !== undefined && !scope.has(fallback)) {
+        // A default outside the scope would fail on every use. Better to
+        // refuse the file than to serve a configuration that cannot work.
+        throw new Error(
+          `acl: principal "${name}" has defaultProject "${fallback}" outside its own scope`,
+        );
+      }
+
       this.byKey.set(config.apiKey, {
         name,
         role: config.role,
         projects: scope,
         projectIds: reverse,
         deniedTools: new Set(denied),
+        defaultProject: fallback,
       });
     }
   }

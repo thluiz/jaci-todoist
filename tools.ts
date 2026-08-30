@@ -275,10 +275,16 @@ export const TOOLS: ToolDefinition[] = [
           description: "Id of the parent task, to create this one as a subtask.",
         },
       },
-      required: ["project", "content"],
+      required: ["content"],
     },
     async handler(args, { principal, api }) {
-      const projectId = assertProjectAccess(principal, requiredString(args, "project"));
+      const alias = optionalString(args, "project") ?? principal.defaultProject;
+      if (!alias) {
+        throw new InvalidArgumentError(
+          `Provide a project alias. Available: ${[...principal.projects.keys()].join(", ")}`,
+        );
+      }
+      const projectId = assertProjectAccess(principal, alias);
 
       // Both destinations are validated against the *target* project, not just
       // against the caller's scope: an in-scope section that lives in another
@@ -562,11 +568,42 @@ export function findTool(name: string): ToolDefinition | undefined {
  * tool is the only version that holds.
  */
 export function toolsFor(principal: Principal): ToolDefinition[] {
-  return TOOLS.filter(
+  const visible = TOOLS.filter(
     (tool) =>
       !principal.deniedTools.has(tool.name) &&
       (principal.role === "write" || !tool.mutates),
   );
+  const fallback = principal.defaultProject;
+  return fallback ? visible.map((tool) => withDefaultProject(tool, fallback)) : visible;
+}
+
+/**
+ * Says, in the schema the model actually reads, where a task lands when no
+ * project is named. Documenting the default only in a system prompt leaves the
+ * tool contract claiming an argument is required when it is not.
+ */
+function withDefaultProject(tool: ToolDefinition, alias: string): ToolDefinition {
+  if (tool.name !== "todoist_create_task") return tool;
+
+  const properties = tool.inputSchema.properties as Record<string, { description?: string }>;
+  const project = properties?.project;
+  if (!project) return tool;
+
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: {
+        ...properties,
+        project: {
+          ...project,
+          description:
+            `${project.description} Optional: if omitted, the task goes to "${alias}". ` +
+            "Name a different project only when the request calls for one.",
+        },
+      },
+    },
+  };
 }
 
 /** Single entry point for both facades: permission checks, then the handler. */
