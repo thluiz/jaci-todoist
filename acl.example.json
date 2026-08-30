@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "Copy to acl.json (gitignored, chmod 600) and edit. Values below are examples.",
+    "",
+    "projects: alias -> Todoist project id. This map is the outer boundary of the",
+    "service. A project absent from it cannot be reached by anyone, whatever their",
+    "scope, which is what makes granting \"*\" safe: it means every project listed",
+    "here, not every project in the account. Leave out anything an agent should",
+    "never touch.",
+    "",
+    "principals: one entry per consumer, keyed by API key. Never share a key",
+    "between two consumers — the key is the identity, and the audit log records",
+    "the name it resolves to.",
+    "",
+    "role: \"write\" or \"read\". A read principal is not shown the mutating tools",
+    "at all.",
+    "",
+    "projects: a list of aliases, or \"*\" for all of them."
+  ],
+
+  "projects": {
+    "home": "0000000000000000",
+    "errands": "1111111111111111"
+  },
+
+  "principals": {
+    "assistant": {
+      "apiKey": "replace-me-with-32-plus-random-chars",
+      "role": "write",
+      "projects": "*"
+    },
+    "household": {
+      "apiKey": "replace-me-too-with-another-random-value",
+      "role": "write",
+      "projects": ["home"]
+    },
+    "dashboard": {
+      "apiKey": "replace-me-as-well-read-only-consumer",
+      "role": "read",
+      "projects": ["home", "errands"]
+    }
+  }
+}

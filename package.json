@@ -1,0 +1,10 @@
+{
+  "name": "jaci-todoist",
+  "version": "1.0.0",
+  "description": "Todoist gateway exposing scoped task CRUD as an MCP server and a mirrored REST API",
+  "type": "module",
+  "scripts": {
+    "start": "bun run server.ts",
+    "test": "bun test"
+  }
+}
