@@ -4,7 +4,7 @@
 acl.json
 
 # Rendered nginx route: contains the real API keys.
-# Only todoist.conf.example (with placeholders) is versioned.
+# Generated from acl.json by render-route.sh, which is what is versioned.
 todoist.conf
 
 # Runtime
