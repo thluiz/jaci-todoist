@@ -15,7 +15,15 @@
     "role: \"write\" or \"read\". A read principal is not shown the mutating tools",
     "at all.",
     "",
-    "projects: a list of aliases, or \"*\" for all of them."
+    "projects: a list of aliases, or \"*\" for all of them.",
+    "",
+    "denyTools: optional list of tool names this principal may not call. The",
+    "role split is coarse; this is the finer cut, for a consumer that must",
+    "write but should not hold one particular operation. Denied tools are",
+    "hidden from tools/list, not merely refused: telling a model not to use a",
+    "tool it can see is a suggestion, removing the tool is a boundary.",
+    "todoist_delete_task is the usual candidate — it is the only operation here",
+    "that cannot be undone."
   ],
 
   "projects": {
@@ -32,7 +40,8 @@
     "household": {
       "apiKey": "replace-me-too-with-another-random-value",
       "role": "write",
-      "projects": ["home"]
+      "projects": ["home"],
+      "denyTools": ["todoist_delete_task"]
     },
     "dashboard": {
       "apiKey": "replace-me-as-well-read-only-consumer",

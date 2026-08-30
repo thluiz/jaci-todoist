@@ -28,6 +28,16 @@ export interface PrincipalConfig {
   role: Role;
   /** Alias list, or "*" for every alias in the `projects` map. */
   projects: "*" | string[];
+  /**
+   * Tools this principal may not call, by name.
+   *
+   * The role split is coarse: read or write. This is for the case where a
+   * consumer needs to write but should not be trusted with one particular
+   * operation — in practice, the irreversible one. A denied tool is hidden
+   * from tools/list as well as refused, because an instruction not to use a
+   * visible tool is a suggestion, and a tool that is absent is a boundary.
+   */
+  denyTools?: string[];
 }
 
 export interface AclFile {
@@ -60,6 +70,8 @@ export interface Principal {
   readonly projects: ReadonlyMap<string, string>;
   /** Todoist project id → alias, the same scope seen from the other side. */
   readonly projectIds: ReadonlyMap<string, string>;
+  /** Tool names this principal may not call, and is not shown. */
+  readonly deniedTools: ReadonlySet<string>;
 }
 
 export class Acl {
@@ -113,11 +125,17 @@ export class Acl {
       const reverse = new Map<string, string>();
       for (const [alias, id] of scope) reverse.set(id, alias);
 
+      const denied = config.denyTools ?? [];
+      if (!Array.isArray(denied) || denied.some((tool) => typeof tool !== "string")) {
+        throw new Error(`acl: principal "${name}" has invalid \`denyTools\` (expected a list of names)`);
+      }
+
       this.byKey.set(config.apiKey, {
         name,
         role: config.role,
         projects: scope,
         projectIds: reverse,
+        deniedTools: new Set(denied),
       });
     }
   }
@@ -133,6 +151,11 @@ export class Acl {
     return new Acl(JSON.parse(raw) as AclFile);
   }
 
+  /** Every configured principal. */
+  principals(): Principal[] {
+    return [...this.byKey.values()];
+  }
+
   /** Resolves the caller, or refuses to serve one. */
   authenticate(apiKey: string | null | undefined): Principal {
     if (!apiKey) throw new AuthenticationError();
@@ -146,6 +169,22 @@ export class Acl {
 //
 // Each returns what it resolved, so a handler that has checked access does not
 // have to fetch the same object again to use it.
+
+/** Every tool name any principal was configured to refuse, for typo checking at boot. */
+export function configuredDenials(acl: Acl): Set<string> {
+  const names = new Set<string>();
+  for (const principal of acl.principals()) {
+    for (const tool of principal.deniedTools) names.add(tool);
+  }
+  return names;
+}
+
+/** A tool this principal was configured not to have. */
+export function assertToolAllowed(principal: Principal, tool: string): void {
+  if (principal.deniedTools.has(tool)) {
+    throw new AuthorizationError(`Tool ${tool} is not available to principal "${principal.name}"`);
+  }
+}
 
 /** A read-only principal may not run a mutating tool. */
 export function assertWriteRole(principal: Principal, tool: string): void {

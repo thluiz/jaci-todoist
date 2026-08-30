@@ -14,7 +14,9 @@ import {
   assertProjectIdAccess,
   assertSectionAccess,
   assertTaskAccess,
+  assertToolAllowed,
   assertWriteRole,
+  configuredDenials,
   type AclFile,
 } from "./acl";
 import type {
@@ -40,6 +42,12 @@ const ACL_FILE: AclFile = {
     owner: { apiKey: "key-owner-0123456789abcdef0123", role: "write", projects: "*" },
     guest: { apiKey: "key-guest-0123456789abcdef0123", role: "write", projects: ["home"] },
     reader: { apiKey: "key-reader-0123456789abcdef012", role: "read", projects: ["home"] },
+    careful: {
+      apiKey: "key-careful-0123456789abcdef01",
+      role: "write",
+      projects: ["home"],
+      denyTools: ["todoist_delete_task"],
+    },
   },
 };
 
@@ -110,6 +118,7 @@ const acl = new Acl(ACL_FILE);
 const owner = acl.authenticate("key-owner-0123456789abcdef0123");
 const guest = acl.authenticate("key-guest-0123456789abcdef0123");
 const reader = acl.authenticate("key-reader-0123456789abcdef012");
+const careful = acl.authenticate("key-careful-0123456789abcdef01");
 
 // ── Authentication ────────────────────────────────────────────────────────
 
@@ -198,6 +207,50 @@ describe("role", () => {
 
   test("a read principal may not", () => {
     expect(() => assertWriteRole(reader, "todoist_create_task")).toThrow(AuthorizationError);
+  });
+});
+
+// ── Tools denied by name ──────────────────────────────────────────────────
+//
+// The role split is coarse. This is the finer cut: a principal that must write
+// but must not hold the one operation that cannot be undone.
+
+describe("denyTools", () => {
+  test("a denied tool is refused even though the role allows writing", () => {
+    expect(() => assertToolAllowed(careful, "todoist_delete_task")).toThrow(AuthorizationError);
+    expect(() => assertWriteRole(careful, "todoist_delete_task")).not.toThrow();
+  });
+
+  test("the principal's other write tools are untouched", () => {
+    expect(() => assertToolAllowed(careful, "todoist_create_task")).not.toThrow();
+    expect(() => assertToolAllowed(careful, "todoist_complete_task")).not.toThrow();
+  });
+
+  test("a principal with no denyTools denies nothing", () => {
+    expect(careful.deniedTools.size).toBe(1);
+    expect(owner.deniedTools.size).toBe(0);
+    expect(() => assertToolAllowed(owner, "todoist_delete_task")).not.toThrow();
+  });
+
+  test("configuredDenials collects every name, for boot-time typo checking", () => {
+    expect([...configuredDenials(acl)]).toEqual(["todoist_delete_task"]);
+  });
+
+  test("a denyTools that is not a list of names is a load error", () => {
+    expect(
+      () =>
+        new Acl({
+          projects: { home: HOME },
+          principals: {
+            a: {
+              apiKey: "k".repeat(32),
+              role: "write",
+              projects: ["home"],
+              denyTools: "todoist_delete_task" as never,
+            },
+          },
+        }),
+    ).toThrow(/invalid `denyTools`/);
   });
 });
 

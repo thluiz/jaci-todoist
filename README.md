@@ -63,6 +63,20 @@ either could otherwise relocate a task out of scope.
 filtered by role, and `role` is enforced again at dispatch. A tool the model
 cannot see is a tool it cannot talk itself into calling.
 
+The read/write split is coarse, so a principal can also refuse individual tools
+by name:
+
+```jsonc
+"household": { "apiKey": "…", "role": "write", "projects": ["home"],
+               "denyTools": ["todoist_delete_task"] }
+```
+
+Denied tools are hidden from `tools/list`, not merely refused when called. That
+distinction is the whole point. `todoist_delete_task` is the usual candidate: it
+is the only operation here that cannot be undone, and an instruction in a system
+prompt saying "ask before deleting" is advice a model can talk itself past —
+removing the tool is not.
+
 Every call is appended to `logs/YYYY-MM-DD.ndjson` with the principal's *name*,
 the tool, the target ids and the outcome. Refusals are logged as loudly as
 successes — a run of denials is how a looping agent or a leaked key announces

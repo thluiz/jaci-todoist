@@ -31,12 +31,19 @@ const acl = new Acl({
     owner: { apiKey: "key-owner-0123456789abcdef0123", role: "write", projects: "*" },
     guest: { apiKey: "key-guest-0123456789abcdef0123", role: "write", projects: ["home"] },
     reader: { apiKey: "key-reader-0123456789abcdef012", role: "read", projects: ["home"] },
+    careful: {
+      apiKey: "key-careful-0123456789abcdef01",
+      role: "write",
+      projects: ["home"],
+      denyTools: ["todoist_delete_task"],
+    },
   },
 } satisfies AclFile);
 
 const owner = acl.authenticate("key-owner-0123456789abcdef0123");
 const guest = acl.authenticate("key-guest-0123456789abcdef0123");
 const reader = acl.authenticate("key-reader-0123456789abcdef012");
+const careful = acl.authenticate("key-careful-0123456789abcdef01");
 
 interface Recorder {
   created: CreateTaskPayload[];
@@ -226,6 +233,23 @@ describe("role enforcement", () => {
     const api = fakeApi();
     const result = await runTool("todoist_list_tasks", { project: "home" }, { principal: reader, api });
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  test("a denied tool is hidden from the listing, not merely refused", () => {
+    const visible = toolsFor(careful).map((tool) => tool.name);
+    expect(visible).not.toContain("todoist_delete_task");
+    // Everything else this principal writes with is still there.
+    expect(visible).toContain("todoist_create_task");
+    expect(visible).toContain("todoist_complete_task");
+    expect(visible.length).toBe(TOOLS.length - 1);
+  });
+
+  test("a denied tool is refused even when named directly, and deletes nothing", async () => {
+    const api = fakeApi();
+    await expect(
+      runTool("todoist_delete_task", { task_id: "t-home" }, { principal: careful, api }),
+    ).rejects.toThrow(AuthorizationError);
+    expect(api.recorder.deleted).toHaveLength(0);
   });
 
   test("an unknown tool name is an argument error", async () => {
