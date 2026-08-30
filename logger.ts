@@ -30,7 +30,11 @@ export class Logger {
     private readonly dir: string,
     private readonly retentionDays: number,
   ) {
-    this.ready = mkdir(dir, { recursive: true }).then(() => undefined);
+    // 0750 on the directory, 0640 on the files: the trail names principals and
+    // the objects they touched, which is nobody else's business on a shared
+    // host. It carries no credentials, but "no secrets in it" is a reason to
+    // keep it tidy, not a reason to leave it open.
+    this.ready = mkdir(dir, { recursive: true, mode: 0o750 }).then(() => undefined);
   }
 
   async write(entry: AuditEntry): Promise<void> {
@@ -38,7 +42,10 @@ export class Logger {
     const line = JSON.stringify({ ts: now.toISOString(), ...entry }) + "\n";
     try {
       await this.ready;
-      await appendFile(join(this.dir, `${dayStamp(now)}.ndjson`), line, "utf8");
+      await appendFile(join(this.dir, `${dayStamp(now)}.ndjson`), line, {
+        encoding: "utf8",
+        mode: 0o640,
+      });
     } catch (error) {
       // Never let auditing take the request down with it; say so on stderr.
       console.error(`[logger] failed to append audit entry: ${describe(error)}`);
