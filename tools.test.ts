@@ -37,6 +37,12 @@ const acl = new Acl({
       projects: ["home"],
       denyTools: ["todoist_delete_task"],
     },
+    homely: {
+      apiKey: "key-homely-0123456789abcdef012",
+      role: "write",
+      projects: "*",
+      defaultProject: "home",
+    },
   },
 } satisfies AclFile);
 
@@ -44,6 +50,7 @@ const owner = acl.authenticate("key-owner-0123456789abcdef0123");
 const guest = acl.authenticate("key-guest-0123456789abcdef0123");
 const reader = acl.authenticate("key-reader-0123456789abcdef012");
 const careful = acl.authenticate("key-careful-0123456789abcdef01");
+const homely = acl.authenticate("key-homely-0123456789abcdef012");
 
 interface Recorder {
   created: CreateTaskPayload[];
@@ -411,6 +418,64 @@ describe("handlers", () => {
     expect(task.project).toBe("home");
     expect(JSON.stringify(task)).not.toContain(HOME);
     expect(task.section).toBe("Groceries");
+  });
+});
+
+// ── Default project ───────────────────────────────────────────────────────
+
+describe("defaultProject", () => {
+  test("a create without a project lands in the principal's default", async () => {
+    const api = fakeApi();
+    await runTool("todoist_create_task", { content: "milk" }, { principal: homely, api });
+    expect(api.recorder.created[0]!.project_id).toBe(HOME);
+  });
+
+  test("an explicit project still wins", async () => {
+    const api = fakeApi();
+    await runTool(
+      "todoist_create_task",
+      { project: "shed", content: "sandpaper" },
+      { principal: homely, api },
+    );
+    expect(api.recorder.created[0]!.project_id).toBe(SHED);
+  });
+
+  test("the default never widens the scope", async () => {
+    // `guest` has no default, so the argument stays effectively required.
+    const api = fakeApi();
+    await expect(
+      runTool("todoist_create_task", { content: "milk" }, { principal: guest, api }),
+    ).rejects.toThrow(InvalidArgumentError);
+    expect(api.recorder.created).toHaveLength(0);
+  });
+
+  test("the schema the model reads says where an omitted project goes", () => {
+    const tool = toolsFor(homely).find((t) => t.name === "todoist_create_task")!;
+    const properties = tool.inputSchema.properties as Record<string, { description: string }>;
+    expect(properties.project.description).toContain('"home"');
+    expect(tool.inputSchema.required).toEqual(["content"]);
+
+    // A principal without a default sees the unmodified description.
+    const plain = toolsFor(guest).find((t) => t.name === "todoist_create_task")!;
+    const plainProps = plain.inputSchema.properties as Record<string, { description: string }>;
+    expect(plainProps.project.description).not.toContain("if omitted");
+  });
+
+  test("a default outside the principal's own scope is a load error", () => {
+    expect(
+      () =>
+        new Acl({
+          projects: { home: HOME, shed: SHED },
+          principals: {
+            a: {
+              apiKey: "k".repeat(32),
+              role: "write",
+              projects: ["home"],
+              defaultProject: "shed",
+            },
+          },
+        }),
+    ).toThrow(/outside its own scope/);
   });
 });
 

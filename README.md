@@ -172,7 +172,7 @@ over the machine's VPN.
 | `todoist_list_projects` | — |
 | `todoist_list_tasks` | `project` \| `filter`, `section?`, `label?` |
 | `todoist_get_task` | `task_id` |
-| `todoist_create_task` | `project`, `content`, `description?`, `due_string?`, `priority?`, `labels?`, `section?`, `parent_id?` |
+| `todoist_create_task` | `content`, `project?`, `description?`, `due_string?`, `priority?`, `labels?`, `section?`, `parent_id?` |
 | `todoist_update_task` | `task_id`, `content?`, `description?`, `priority?`, `labels?` |
 | `todoist_reschedule_task` | `task_id`, `due_string` |
 | `todoist_move_task` | `task_id`, `project?`, `section?`, `parent_id?` |
@@ -186,6 +186,11 @@ over the machine's VPN.
 
 Sections may be given by the name shown in Todoist or by id. Project ids never
 appear in a request or a response.
+
+`project` is required on create unless the principal has a `defaultProject`, in
+which case an omitted project lands there. The default is written into the tool
+schema the model reads, so the decision is documented where it is made rather
+than only in a system prompt.
 
 ## Layout
 

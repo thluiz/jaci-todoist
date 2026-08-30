@@ -23,7 +23,13 @@
     "hidden from tools/list, not merely refused: telling a model not to use a",
     "tool it can see is a suggestion, removing the tool is a boundary.",
     "todoist_delete_task is the usual candidate — it is the only operation here",
-    "that cannot be undone."
+    "that cannot be undone.",
+    "",
+    "defaultProject: optional alias, inside the principal's own scope, used when",
+    "a create names no project. A model asked to choose a destination every time",
+    "will sometimes choose wrong; naming the usual answer means the unusual one",
+    "has to be asked for. It appears in the tool schema the model reads, so the",
+    "default is documented where the decision is made."
   ],
 
   "projects": {
@@ -41,7 +47,8 @@
       "apiKey": "replace-me-too-with-another-random-value",
       "role": "write",
       "projects": ["home"],
-      "denyTools": ["todoist_delete_task"]
+      "denyTools": ["todoist_delete_task"],
+      "defaultProject": "home"
     },
     "dashboard": {
       "apiKey": "replace-me-as-well-read-only-consumer",
