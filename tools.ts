@@ -13,6 +13,7 @@ import {
   assertProjectAccess,
   assertSectionAccess,
   assertTaskAccess,
+  assertToolAllowed,
   assertWriteRole,
   AuthorizationError,
   type Principal,
@@ -553,17 +554,26 @@ export function findTool(name: string): ToolDefinition | undefined {
 
 /**
  * The tools a principal may see. A read-only caller is not told that the
- * mutating tools exist: a tool the model cannot see is one it cannot invent a
- * reason to call.
+ * mutating tools exist, and neither is a caller with a tool denied by name: a
+ * tool the model cannot see is one it cannot invent a reason to call.
+ *
+ * That last point is not theoretical. A written instruction not to use a
+ * visible tool is a suggestion the model can talk itself past; removing the
+ * tool is the only version that holds.
  */
 export function toolsFor(principal: Principal): ToolDefinition[] {
-  return principal.role === "write" ? TOOLS : TOOLS.filter((tool) => !tool.mutates);
+  return TOOLS.filter(
+    (tool) =>
+      !principal.deniedTools.has(tool.name) &&
+      (principal.role === "write" || !tool.mutates),
+  );
 }
 
-/** Single entry point for both facades: role check, then the handler. */
+/** Single entry point for both facades: permission checks, then the handler. */
 export async function runTool(name: string, args: Args, ctx: ToolContext): Promise<unknown> {
   const tool = findTool(name);
   if (!tool) throw new InvalidArgumentError(`Unknown tool: ${name}`);
+  assertToolAllowed(ctx.principal, name);
   if (tool.mutates) assertWriteRole(ctx.principal, name);
   if (!ctx.principal.projects.size) {
     throw new AuthorizationError(`Principal "${ctx.principal.name}" has no projects in scope`);

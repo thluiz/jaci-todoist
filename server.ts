@@ -12,7 +12,13 @@
 
 import { stat } from "node:fs/promises";
 
-import { Acl, AuthenticationError, AuthorizationError, type Principal } from "./acl";
+import {
+  Acl,
+  AuthenticationError,
+  AuthorizationError,
+  configuredDenials,
+  type Principal,
+} from "./acl";
 import { RateLimitError, WriteBudget } from "./budget";
 import { loadConfig } from "./config";
 import { Logger, type AuditOutcome } from "./logger";
@@ -36,6 +42,19 @@ let acl = await Acl.load(config.aclPath);
 let aclMtimeMs = (await stat(config.aclPath)).mtimeMs;
 let aclCheckedAt = 0;
 
+/**
+ * A denyTools entry that matches no tool silently protects nothing, and a
+ * misspelled one looks exactly like a working one. Say so rather than let it
+ * pass for a control.
+ */
+function warnUnknownDenials(current: Acl): void {
+  const unknown = [...configuredDenials(current)].filter((name) => !findTool(name));
+  if (unknown.length) {
+    console.warn(`[${SERVER_NAME}] denyTools names no such tool: ${unknown.join(", ")}`);
+  }
+}
+warnUnknownDenials(acl);
+
 async function currentAcl(): Promise<Acl> {
   const now = Date.now();
   if (now - aclCheckedAt < 5_000) return acl;
@@ -45,6 +64,7 @@ async function currentAcl(): Promise<Acl> {
     if (mtimeMs !== aclMtimeMs) {
       acl = await Acl.load(config.aclPath);
       aclMtimeMs = mtimeMs;
+      warnUnknownDenials(acl);
       console.log(`[${SERVER_NAME}] reloaded ${config.aclPath}`);
     }
   } catch (error) {
